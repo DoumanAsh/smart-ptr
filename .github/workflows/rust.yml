@@ -1,0 +1,17 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Check no features
+      run: cargo check
+    - name: Check alloc
+      run: cargo check --features alloc
+    - name: Run tests
+      run: cargo test --features alloc --verbose
