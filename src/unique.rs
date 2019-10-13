@@ -45,11 +45,11 @@ impl Deleter for GlobalDeleter {
 }
 
 ///Alias to `Unique` with `()` as second type parameter, which has no deallocation
-pub type NonMemUnique<T> = Unique<T, ()>;
+pub type NonMem<T> = Unique<T, ()>;
 
 #[cfg(feature = "alloc")]
 ///Alias to `Unique` with `GlobalDeleter` as second type parameter
-pub type GlobalUnique<T> = Unique<T, GlobalDeleter>;
+pub type Global<T> = Unique<T, GlobalDeleter>;
 
 ///Smart pointer, that owns and manages object via its pointer.
 ///
@@ -162,19 +162,11 @@ impl<T, D: Deleter> Unique<T, D> {
     }
 }
 
-struct CallOnDrop<F: FnMut()>(F);
-
-impl<F: FnMut()> Drop for CallOnDrop<F> {
-    fn drop(&mut self) {
-        (self.0)()
-    }
-}
-
 impl<T, D: Deleter> Drop for Unique<T, D> {
     fn drop(&mut self) {
         let ptr = self.inner.as_ptr();
 
-        let _memory_guard = CallOnDrop(|| self.deleter.delete::<T>(ptr as *mut u8));
+        let _memory_guard = crate::utils::CallOnDrop(|| self.deleter.delete::<T>(ptr as *mut u8));
 
         if mem::needs_drop::<T>() {
             unsafe {

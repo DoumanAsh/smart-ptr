@@ -16,7 +16,7 @@ fn should_drop_without_dealloc() {
 
     {
         let mut value = PanicOnDrop(&mut is_drop);
-        let _ptr = unique::NonMemUnique::new_default(&mut value);
+        let _ptr = unique::NonMem::new_default(&mut value);
     }
 
     assert!(is_drop);
@@ -44,10 +44,10 @@ fn should_dealloc() {
 #[test]
 #[should_panic]
 fn should_panic_on_null() {
-    unique::NonMemUnique::<bool>::new_default(ptr::null_mut());
+    unique::NonMem::<bool>::new_default(ptr::null_mut());
 }
 
 #[test]
 fn should_fail_on_null() {
-    assert!(unique::NonMemUnique::<bool>::from_ptr_default(ptr::null_mut()).is_none());
+    assert!(unique::NonMem::<bool>::from_ptr_default(ptr::null_mut()).is_none());
 }

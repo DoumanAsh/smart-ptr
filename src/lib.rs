@@ -11,5 +11,6 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod utils;
 pub mod unique;
 pub use unique::Unique;
