@@ -155,10 +155,8 @@ impl<T, D: Deleter> Drop for Unique<T, D> {
 
         let _memory_guard = crate::utils::CallOnDrop(|| self.deleter.delete::<T>(ptr as *mut u8));
 
-        if mem::needs_drop::<T>() {
-            unsafe {
-                ptr::drop_in_place(ptr);
-            }
+        unsafe {
+            ptr::drop_in_place(ptr);
         }
     }
 }
