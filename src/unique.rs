@@ -61,6 +61,9 @@ pub type Global<T> = Unique<T, GlobalDeleter>;
 ///
 ///If you use [Deleter](trait.Deleter.html) that relies on type information, you must guarantee
 ///that provided pointer was created using the same type as pointer
+///
+///You must guarantee that specified pointer is valid one and points to existing memory storage,
+///which is already initialzied.
 pub struct Unique<T, D> where D: Deleter {
     inner: ptr::NonNull<T>,
     deleter: D,
@@ -115,24 +118,8 @@ impl<T, D: Deleter> Unique<T, D> {
 
     #[inline(always)]
     ///Gets underlying raw pointer.
-    pub fn as_ptr(&self) -> *mut T {
+    pub fn as_raw(&self) -> *mut T {
         self.inner.as_ptr()
-    }
-
-    #[inline(always)]
-    ///Gets reference to underlying object
-    pub fn as_ref(&self) -> &T {
-        unsafe {
-            &*self.inner.as_ptr()
-        }
-    }
-
-    #[inline(always)]
-    ///Gets mutable reference to underlying object
-    pub fn as_mut(&self) -> &mut T {
-        unsafe {
-            &mut *self.inner.as_ptr()
-        }
     }
 
     #[inline(always)]
@@ -193,3 +180,21 @@ impl<T: Unpin, D: Deleter + Unpin> Unpin for Unique<T, D> {}
 unsafe impl<T: Send, D: Deleter + Send> Send for Unique<T, D> {}
 
 unsafe impl<T: Sync, D: Deleter + Sync> Sync for Unique<T, D> {}
+
+impl<T, D: Deleter> core::ops::Deref for Unique<T, D> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe {
+            &*self.inner.as_ptr()
+        }
+    }
+}
+
+impl<T, D: Deleter> core::ops::DerefMut for Unique<T, D> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            &mut *self.inner.as_ptr()
+        }
+    }
+}
