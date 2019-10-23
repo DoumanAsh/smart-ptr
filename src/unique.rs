@@ -60,7 +60,7 @@ pub type Global<T> = Unique<T, GlobalDeleter>;
 ///# Safety
 ///
 ///If you use [Deleter](trait.Deleter.html) that relies on type information, you must guarantee
-///that provided pointer was created using the same type as pointer
+///that object was created using the same type as pointer, which points to it.
 ///
 ///You must guarantee that specified pointer is valid one and points to existing memory storage,
 ///which is already initialzied.
