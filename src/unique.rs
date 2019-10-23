@@ -187,3 +187,9 @@ impl<T, D: Deleter> fmt::Debug for Unique<T, D> {
         write!(f, "{:p}", self.inner)
     }
 }
+
+impl<T: Unpin, D: Deleter + Unpin> Unpin for Unique<T, D> {}
+
+unsafe impl<T: Send, D: Deleter + Send> Send for Unique<T, D> {}
+
+unsafe impl<T: Sync, D: Deleter + Sync> Sync for Unique<T, D> {}
