@@ -76,7 +76,7 @@ impl<T, D: Default + Deleter> Unique<T, D> {
     ///# Panics
     ///
     ///- If pointer is null
-    pub fn new_default(ptr: *mut T) -> Self {
+    pub unsafe fn new_default(ptr: *mut T) -> Self {
         Self::new(ptr, D::default())
     }
 
@@ -84,7 +84,7 @@ impl<T, D: Default + Deleter> Unique<T, D> {
     ///Creates instance from raw pointer, checking if pointer is null.
     ///
     ///Returns `None` if pointer is null.
-    pub fn from_ptr_default(ptr: *mut T) -> Option<Self> {
+    pub unsafe fn from_ptr_default(ptr: *mut T) -> Option<Self> {
         Self::from_ptr(ptr, D::default())
     }
 }
@@ -96,11 +96,11 @@ impl<T, D: Deleter> Unique<T, D> {
     ///# Panics
     ///
     ///- If pointer is null
-    pub fn new(ptr: *mut T, deleter: D) -> Self {
-        assert!(!ptr.is_null());
+    pub unsafe fn new(ptr: *mut T, deleter: D) -> Self {
+        debug_assert!(!ptr.is_null());
 
         Self {
-            inner: unsafe { ptr::NonNull::new_unchecked(ptr) },
+            inner: ptr::NonNull::new_unchecked(ptr),
             deleter,
         }
     }
@@ -109,7 +109,7 @@ impl<T, D: Deleter> Unique<T, D> {
     ///Creates instance from raw pointer, checking if pointer is null.
     ///
     ///Returns `None` if pointer is null.
-    pub fn from_ptr(ptr: *mut T, deleter: D) -> Option<Self> {
+    pub unsafe fn from_ptr(ptr: *mut T, deleter: D) -> Option<Self> {
         ptr::NonNull::new(ptr).map(move |inner| Self {
             inner,
             deleter,
