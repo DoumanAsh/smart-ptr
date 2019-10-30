@@ -2,54 +2,14 @@
 
 use core::{mem, fmt, ptr};
 
-///Describes how to de-allocate pointer.
-pub trait Deleter {
-    ///This function is called on `Drop`
-    fn delete<T>(&mut self, ptr: *mut u8);
-}
-
-impl Deleter for () {
-    fn delete<T>(&mut self, _: *mut u8) {}
-}
-
-impl Deleter for unsafe extern "C" fn(*mut u8) {
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        unsafe {
-            (*self)(ptr)
-        }
-    }
-}
-
-impl<F: FnMut(*mut u8)> Deleter for F {
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        (*self)(ptr)
-    }
-}
-
-#[cfg(feature = "alloc")]
-#[derive(Default)]
-///Deleter which uses global allocator.
-///
-///It uses type information, provided as type parameter of `Deleter::delete` to create layout for `alloc::dealloc`
-///
-///Therefore user must guarantee that pointer was created with the same type information
-pub struct GlobalDeleter;
-
-#[cfg(feature = "alloc")]
-impl Deleter for GlobalDeleter {
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        unsafe {
-            alloc::alloc::dealloc(ptr, core::alloc::Layout::new::<T>());
-        }
-    }
-}
+use crate::Deleter;
 
 ///Alias to `Unique` with `()` as second type parameter, which has no deallocation
 pub type NonMem<T> = Unique<T, ()>;
 
 #[cfg(feature = "alloc")]
 ///Alias to `Unique` with `GlobalDeleter` as second type parameter
-pub type Global<T> = Unique<T, GlobalDeleter>;
+pub type Global<T> = Unique<T, crate::GlobalDeleter>;
 
 ///Smart pointer, that owns and manages object via its pointer.
 ///

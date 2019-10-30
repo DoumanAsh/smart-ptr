@@ -27,7 +27,7 @@ fn should_dealloc() {
     let mut is_dealloc = false;
     pub struct MyDeleter<'a>(&'a mut bool);
 
-    impl<'a> unique::Deleter for MyDeleter<'a> {
+    impl<'a> smart_ptr::Deleter for MyDeleter<'a> {
         fn delete<T>(&mut self, _: *mut u8) {
             *(self.0) = true;
         }
