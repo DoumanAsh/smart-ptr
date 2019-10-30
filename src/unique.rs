@@ -122,12 +122,14 @@ impl<T, D: Deleter> Drop for Unique<T, D> {
 }
 
 impl<T, D: Deleter> fmt::Pointer for Unique<T, D> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:p}", self.inner)
     }
 }
 
 impl<T, D: Deleter> fmt::Debug for Unique<T, D> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:p}", self.inner)
     }
@@ -142,6 +144,7 @@ unsafe impl<T: Sync, D: Deleter + Sync> Sync for Unique<T, D> {}
 impl<T, D: Deleter> core::ops::Deref for Unique<T, D> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         unsafe {
             &*self.inner.as_ptr()
@@ -150,9 +153,22 @@ impl<T, D: Deleter> core::ops::Deref for Unique<T, D> {
 }
 
 impl<T, D: Deleter> core::ops::DerefMut for Unique<T, D> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
             &mut *self.inner.as_ptr()
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T> From<alloc::boxed::Box<T>> for Global<T> {
+    #[inline]
+    fn from(ptr: alloc::boxed::Box<T>) -> Self {
+        let ptr = alloc::boxed::Box::into_raw(ptr);
+        Self {
+            inner: unsafe { ptr::NonNull::new_unchecked(ptr) },
+            deleter: crate::GlobalDeleter,
         }
     }
 }
