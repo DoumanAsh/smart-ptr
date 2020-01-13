@@ -50,7 +50,22 @@ impl<F: FnMut(*mut u8)> Deleter for F {
 ///
 ///It can be useful when one would want to allow type erasure,
 ///but it is UB to specify invalid `T`
+///
+///```rust
+///use smart_ptr::Unique;
+///
+///let var = Box::new("test".to_string());
+///unsafe {
+///    Unique::new(Box::leak(var) as *mut String as *mut u8, smart_ptr::default_deleter::<String>);
+///}
+///```
+///
+///## Warning
+///
+///Remember that things can get complicated when you cast from fat ptrs(with vtable)
 pub fn default_deleter<T>(ptr: *mut u8) {
+    debug_assert!(!ptr.is_null());
+
     unsafe {
         alloc::boxed::Box::from_raw(ptr as *mut T);
     }
