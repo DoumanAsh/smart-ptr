@@ -87,6 +87,5 @@ impl Deleter for DefaultDeleter {
     }
 }
 
-pub mod utils;
 pub mod unique;
 pub use unique::Unique;
