@@ -41,6 +41,32 @@ fn should_dealloc() {
     assert!(is_dealloc);
 }
 
+#[cfg(feature = "alloc")]
+#[test]
+fn should_dtor_global() {
+    let mut is_dealloc = false;
+    pub struct MyDeleter<'a>(&'a mut bool);
+    impl<'a> Drop for MyDeleter<'a> {
+        fn drop(&mut self) {
+            *(self.0) = true;
+        }
+    }
+
+    Unique::boxed(MyDeleter(&mut is_dealloc));
+
+    assert!(is_dealloc);
+
+    // Check type erasure
+    is_dealloc = false;
+
+    let var = Box::new(MyDeleter(&mut is_dealloc));
+    unsafe {
+        Unique::new(Box::leak(var) as *mut MyDeleter as *mut u8, smart_ptr::default_deleter::<MyDeleter>);
+    }
+
+    assert!(is_dealloc);
+}
+
 #[test]
 #[should_panic]
 fn should_panic_on_null() {

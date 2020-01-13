@@ -8,8 +8,8 @@ use crate::Deleter;
 pub type NonMem<T> = Unique<T, ()>;
 
 #[cfg(feature = "alloc")]
-///Alias to `Unique` with `GlobalDeleter` as second type parameter
-pub type Global<T> = Unique<T, crate::GlobalDeleter>;
+///Alias to `Unique` with `DefaultDeleter` as second type parameter
+pub type Global<T> = Unique<T, crate::DefaultDeleter>;
 
 ///Smart pointer, that owns and manages object via its pointer.
 ///
@@ -27,6 +27,15 @@ pub type Global<T> = Unique<T, crate::GlobalDeleter>;
 pub struct Unique<T, D> where D: Deleter {
     inner: ptr::NonNull<T>,
     deleter: D,
+}
+
+#[cfg(feature = "alloc")]
+impl<T> Unique<T, crate::DefaultDeleter> {
+    #[inline]
+    ///Creates new instance using global allocator
+    pub fn boxed(val: T) -> Self {
+        alloc::boxed::Box::new(val).into()
+    }
 }
 
 impl<T, D: Default + Deleter> Unique<T, D> {
@@ -128,12 +137,7 @@ impl<T, D: Deleter> Unique<T, D> {
 impl<T, D: Deleter> Drop for Unique<T, D> {
     fn drop(&mut self) {
         let ptr = self.inner.as_ptr();
-
-        let _memory_guard = crate::utils::CallOnDrop(|| self.deleter.delete::<T>(ptr as *mut u8));
-
-        unsafe {
-            ptr::drop_in_place(ptr);
-        }
+        self.deleter.delete::<T>(ptr as *mut u8)
     }
 }
 
@@ -184,7 +188,7 @@ impl<T> From<alloc::boxed::Box<T>> for Global<T> {
         let ptr = alloc::boxed::Box::into_raw(ptr);
         Self {
             inner: unsafe { ptr::NonNull::new_unchecked(ptr) },
-            deleter: crate::GlobalDeleter,
+            deleter: crate::DefaultDeleter,
         }
     }
 }
