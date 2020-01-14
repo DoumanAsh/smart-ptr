@@ -61,7 +61,7 @@ fn should_dtor_global() {
 
     let var = Box::new(MyDeleter(&mut is_dealloc));
     unsafe {
-        Unique::new(Box::leak(var) as *mut MyDeleter as *mut u8, smart_ptr::default_deleter::<MyDeleter>);
+        Unique::new(Box::leak(var) as *mut MyDeleter as *mut u8, smart_ptr::boxed_deleter::<MyDeleter>);
     }
 
     assert!(is_dealloc);

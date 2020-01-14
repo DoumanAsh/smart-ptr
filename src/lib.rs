@@ -56,14 +56,14 @@ impl<F: FnMut(*mut u8)> Deleter for F {
 ///
 ///let var = Box::new("test".to_string());
 ///unsafe {
-///    Unique::new(Box::leak(var) as *mut String as *mut u8, smart_ptr::default_deleter::<String>);
+///    Unique::new(Box::leak(var) as *mut String as *mut u8, smart_ptr::boxed_deleter::<String>);
 ///}
 ///```
 ///
 ///## Warning
 ///
 ///Remember that things can get complicated when you cast from fat ptrs(with vtable)
-pub fn default_deleter<T>(ptr: *mut u8) {
+pub fn boxed_deleter<T>(ptr: *mut u8) {
     debug_assert!(!ptr.is_null());
 
     unsafe {
@@ -72,9 +72,10 @@ pub fn default_deleter<T>(ptr: *mut u8) {
 }
 
 #[derive(Default)]
-///Deleter which uses global allocator.
+///Deleter which uses global allocator via `Box`.
 ///
-///It uses type information, provided as type parameter of `Deleter::delete` to create layout for `alloc::dealloc`
+///It uses type information, provided as type parameter of `Deleter::delete` to re-create `Box` and
+///destruct it
 ///
 ///Therefore user must guarantee that pointer was created with the same type information
 pub struct DefaultDeleter;
@@ -83,7 +84,7 @@ pub struct DefaultDeleter;
 impl Deleter for DefaultDeleter {
     #[inline]
     fn delete<T>(&mut self, ptr: *mut u8) {
-        default_deleter::<T>(ptr)
+        boxed_deleter::<T>(ptr)
     }
 }
 
