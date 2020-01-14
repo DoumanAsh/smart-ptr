@@ -7,6 +7,12 @@ use crate::Deleter;
 ///Alias to `Unique` with `()` as second type parameter, which has no deallocation
 pub type NonMem<T> = Unique<T, ()>;
 
+///Alias to `Unique` with regular function ptr as deleter.
+pub type Fn<T> = Unique<T, fn(*mut u8)>;
+
+///Alias to `Unique` with unsafe function ptr as deleter.
+pub type UnsafeFn<T> = Unique<T, unsafe fn(*mut u8)>;
+
 #[cfg(feature = "alloc")]
 ///Alias to `Unique` with `DefaultDeleter` as second type parameter
 pub type Global<T> = Unique<T, crate::DefaultDeleter>;
@@ -22,8 +28,8 @@ pub type Global<T> = Unique<T, crate::DefaultDeleter>;
 ///If you use [Deleter](trait.Deleter.html) that relies on type information, you must guarantee
 ///that object was created using the same type as pointer, which points to it.
 ///
-///You must guarantee that specified pointer is valid one and points to existing memory storage,
-///which is already initialzied.
+///Which means you must guarantee that specified pointer is valid one and points to existing memory storage,
+///which is already initialized.
 pub struct Unique<T, D> where D: Deleter {
     inner: ptr::NonNull<T>,
     deleter: D,
@@ -103,8 +109,14 @@ impl<T, D: Deleter> Unique<T, D> {
 
     #[inline(always)]
     ///Gets underlying raw pointer.
-    pub fn as_raw(&self) -> *mut T {
+    pub fn get(&self) -> *mut T {
         self.inner.as_ptr()
+    }
+
+    #[inline(always)]
+    ///Gets underlying deleter
+    pub fn get_deleter(&mut self) -> &mut D {
+        &mut self.deleter
     }
 
     #[inline(always)]
@@ -135,9 +147,9 @@ impl<T, D: Deleter> Unique<T, D> {
 }
 
 impl<T, D: Deleter> Drop for Unique<T, D> {
+    #[inline]
     fn drop(&mut self) {
-        let ptr = self.inner.as_ptr();
-        self.deleter.delete::<T>(ptr as *mut u8)
+        self.deleter.delete::<T>(self.inner.as_ptr() as *mut u8)
     }
 }
 
@@ -178,6 +190,13 @@ impl<T, D: Deleter> core::ops::DerefMut for Unique<T, D> {
         unsafe {
             &mut *self.inner.as_ptr()
         }
+    }
+}
+
+impl<T, D: Deleter> core::hash::Hash for Unique<T, D> {
+    #[inline]
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
     }
 }
 
