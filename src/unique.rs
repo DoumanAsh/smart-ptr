@@ -42,6 +42,15 @@ impl<T> Unique<T, crate::DefaultDeleter> {
     pub fn boxed(val: T) -> Self {
         alloc::boxed::Box::new(val).into()
     }
+
+    #[inline]
+    ///Converts ptr to box
+    pub fn into_boxed(self) -> alloc::boxed::Box<T> {
+        let ptr = self.release().as_ptr();
+        unsafe {
+            alloc::boxed::Box::from_raw(ptr)
+        }
+    }
 }
 
 impl<T, D: Default + Deleter> Unique<T, D> {
