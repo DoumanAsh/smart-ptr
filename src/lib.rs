@@ -18,10 +18,12 @@ pub trait Deleter {
 }
 
 impl Deleter for () {
+    #[inline(always)]
     fn delete<T>(&mut self, _: *mut u8) {}
 }
 
 impl Deleter for unsafe extern "C" fn(*mut u8) {
+    #[inline(always)]
     fn delete<T>(&mut self, ptr: *mut u8) {
         unsafe {
             (*self)(ptr)
@@ -30,6 +32,7 @@ impl Deleter for unsafe extern "C" fn(*mut u8) {
 }
 
 impl Deleter for unsafe fn(*mut u8) {
+    #[inline(always)]
     fn delete<T>(&mut self, ptr: *mut u8) {
         unsafe {
             (*self)(ptr)
@@ -38,6 +41,7 @@ impl Deleter for unsafe fn(*mut u8) {
 }
 
 impl<F: FnMut(*mut u8)> Deleter for F {
+    #[inline(always)]
     fn delete<T>(&mut self, ptr: *mut u8) {
         (*self)(ptr)
     }
@@ -56,19 +60,17 @@ impl<F: FnMut(*mut u8)> Deleter for F {
 ///
 ///let var = Box::new("test".to_string());
 ///unsafe {
-///    Unique::new(Box::leak(var) as *mut String as *mut u8, smart_ptr::boxed_deleter::<String>);
+///    smart_ptr::boxed_deleter::<String>(Box::leak(var) as *mut String as *mut u8);
 ///}
 ///```
 ///
 ///## Warning
 ///
 ///Remember that things can get complicated when you cast from fat ptrs(with vtable)
-pub fn boxed_deleter<T>(ptr: *mut u8) {
+pub unsafe fn boxed_deleter<T>(ptr: *mut u8) {
     debug_assert!(!ptr.is_null());
 
-    unsafe {
-        alloc::boxed::Box::from_raw(ptr as *mut T);
-    }
+    alloc::boxed::Box::from_raw(ptr as *mut T);
 }
 
 #[derive(Default)]
@@ -84,7 +86,9 @@ pub struct DefaultDeleter;
 impl Deleter for DefaultDeleter {
     #[inline]
     fn delete<T>(&mut self, ptr: *mut u8) {
-        boxed_deleter::<T>(ptr)
+        unsafe {
+            boxed_deleter::<T>(ptr)
+        }
     }
 }
 

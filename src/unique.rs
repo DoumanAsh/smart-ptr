@@ -123,6 +123,18 @@ impl<T, D: Deleter> Unique<T, D> {
     }
 
     #[inline(always)]
+    ///Gets reference to underlying data.
+    pub fn as_ref(&self) -> &T {
+        self
+    }
+
+    #[inline(always)]
+    ///Gets mutable reference to underlying data.
+    pub fn as_mut(&mut self) -> &mut T {
+        self
+    }
+
+    #[inline(always)]
     ///Gets underlying deleter
     pub fn get_deleter(&mut self) -> &mut D {
         &mut self.deleter
@@ -156,23 +168,23 @@ impl<T, D: Deleter> Unique<T, D> {
 }
 
 impl<T, D: Deleter> Drop for Unique<T, D> {
-    #[inline]
+    #[inline(always)]
     fn drop(&mut self) {
         self.deleter.delete::<T>(self.inner.as_ptr() as *mut u8)
     }
 }
 
 impl<T, D: Deleter> fmt::Pointer for Unique<T, D> {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:p}", self.inner)
+        self.inner.fmt(f)
     }
 }
 
 impl<T, D: Deleter> fmt::Debug for Unique<T, D> {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:p}", self.inner)
+        self.inner.fmt(f)
     }
 }
 
