@@ -74,7 +74,9 @@ fn should_handle_mut_ref() {
 fn should_handle_global_alloc_string() {
     let text = Box::new(alloc::format!("test"));
     let ptr: unique::Global<_> = text.into();
+    let clone = ptr.clone();
     assert_eq!(ptr.as_ref(), "test");
+    assert_eq!(clone.as_ref(), "test");
     drop(ptr);
 }
 

@@ -239,6 +239,20 @@ impl<T: ?Sized> From<alloc::boxed::Box<T>> for Global<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<T: ?Sized + Clone> Clone for Global<T> {
+    fn clone(&self) -> Self {
+        let val = unsafe {
+            //Make sure not to drop unnecessary
+            core::mem::ManuallyDrop::new(
+                alloc::boxed::Box::from_raw(self.get())
+            )
+        };
+        let result = core::mem::ManuallyDrop::into_inner(val.clone());
+        result.into()
+    }
+}
+
 impl<'a, T: ?Sized> From<&'a mut T> for Unique<'a, T, ()> {
     #[inline]
     fn from(ptr: &'a mut T) -> Self {
