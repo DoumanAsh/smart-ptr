@@ -1,42 +1,15 @@
 //!Unique pointer implementation
 
-use core::{mem, fmt, ptr};
+use core::{mem, fmt, ptr, marker};
 
 use crate::Deleter;
 
-///Alias to `Unique` with `()` as second type parameter, which has no deallocation
-pub type NonMem<T> = Unique<T, ()>;
-
-///Alias to `Unique` with regular function ptr as deleter.
-pub type Fn<T> = Unique<T, fn(*mut u8)>;
-
-///Alias to `Unique` with unsafe function ptr as deleter.
-pub type UnsafeFn<T> = Unique<T, unsafe fn(*mut u8)>;
-
 #[cfg(feature = "alloc")]
 ///Alias to `Unique` with `DefaultDeleter` as second type parameter
-pub type Global<T> = Unique<T, crate::DefaultDeleter>;
-
-///Smart pointer, that owns and manages object via its pointer.
-///
-///On `Drop` it automatically disposes of pointer with provided deleter.
-///
-///Useful in C FFI context.
-///
-///# Safety
-///
-///If you use [Deleter](trait.Deleter.html) that relies on type information, you must guarantee
-///that object was created using the same type as pointer, which points to it.
-///
-///Which means you must guarantee that specified pointer is valid one and points to existing memory storage,
-///which is already initialized.
-pub struct Unique<T, D> where D: Deleter {
-    inner: ptr::NonNull<T>,
-    deleter: D,
-}
+pub type Global<T> = Unique<'static, T, crate::DefaultDeleter>;
 
 #[cfg(feature = "alloc")]
-impl<T> Unique<T, crate::DefaultDeleter> {
+impl<T> Global<T> {
     #[inline]
     ///Creates new instance using global allocator
     pub fn boxed(val: T) -> Self {
@@ -53,55 +26,46 @@ impl<T> Unique<T, crate::DefaultDeleter> {
     }
 }
 
-impl<T, D: Default + Deleter> Unique<T, D> {
-    #[inline]
-    ///Creates new instance from raw pointer and `Deleter` instance
-    ///
-    ///# Panics
-    ///
-    ///- If pointer is null
-    pub unsafe fn new_default(ptr: *mut T) -> Self {
-        Self::new(ptr, D::default())
-    }
-
-    #[inline]
-    ///Creates instance from raw pointer, checking if pointer is null.
-    ///
-    ///Returns `None` if pointer is null.
-    pub unsafe fn from_ptr_default(ptr: *mut T) -> Option<Self> {
-        Self::from_ptr(ptr, D::default())
-    }
-
-    #[inline]
-    ///Creates instance from raw pointer, without checking if pointer is null.
-    ///
-    ///User must ensure that pointer is non-null
-    pub unsafe fn from_ptr_unchecked_default(ptr: *mut T) -> Self {
-        Self::from_ptr_unchecked(ptr, D::default())
-    }
+#[repr(transparent)]
+///Smart pointer, that owns and manages object via its pointer.
+///
+///On `Drop` it automatically disposes of pointer with provided deleter.
+///
+///Useful in C FFI context.
+///
+///# Safety
+///
+///If you use [Deleter](trait.Deleter.html) that relies on type information, you must guarantee
+///that object was created using the same type as pointer, which points to it.
+///
+///Which means you must guarantee that specified pointer is valid one and points to existing memory storage,
+///which is already initialized.
+pub struct Unique<'a, T, D> where D: Deleter {
+    inner: ptr::NonNull<T>,
+    _traits: marker::PhantomData<&'a D>,
 }
 
-impl<T, D: Deleter> Unique<T, D> {
+impl<'a, T, D: Deleter> Unique<'a, T, D> {
     #[inline]
     ///Creates new instance from raw pointer and `Deleter` instance
     ///
     ///# Panics
     ///
     ///- If pointer is null
-    pub unsafe fn new(ptr: *mut T, deleter: D) -> Self {
+    pub unsafe fn new(ptr: *mut T) -> Self {
         assert!(!ptr.is_null());
 
-        Self::from_ptr_unchecked(ptr, deleter)
+        Self::from_ptr_unchecked(ptr)
     }
 
     #[inline]
     ///Creates instance from raw pointer, checking if pointer is null.
     ///
     ///Returns `None` if pointer is null.
-    pub unsafe fn from_ptr(ptr: *mut T, deleter: D) -> Option<Self> {
+    pub unsafe fn from_ptr(ptr: *mut T) -> Option<Self> {
         match ptr.is_null() {
             true => None,
-            false => Some(Self::from_ptr_unchecked(ptr, deleter)),
+            false => Some(Self::from_ptr_unchecked(ptr)),
         }
     }
 
@@ -109,10 +73,10 @@ impl<T, D: Deleter> Unique<T, D> {
     ///Creates instance from raw pointer, without checking if pointer is null.
     ///
     ///User must ensure that pointer is non-null
-    pub unsafe fn from_ptr_unchecked(ptr: *mut T, deleter: D) -> Self {
+    pub unsafe fn from_ptr_unchecked(ptr: *mut T) -> Self {
         Self {
             inner: ptr::NonNull::new_unchecked(ptr),
-            deleter
+            _traits: marker::PhantomData,
         }
     }
 
@@ -132,12 +96,6 @@ impl<T, D: Deleter> Unique<T, D> {
     ///Gets mutable reference to underlying data.
     pub fn as_mut(&mut self) -> &mut T {
         self
-    }
-
-    #[inline(always)]
-    ///Gets underlying deleter
-    pub fn get_deleter(&mut self) -> &mut D {
-        &mut self.deleter
     }
 
     #[inline(always)]
@@ -167,34 +125,36 @@ impl<T, D: Deleter> Unique<T, D> {
     }
 }
 
-impl<T, D: Deleter> Drop for Unique<T, D> {
+impl<'a, T, D: Deleter> Drop for Unique<'a, T, D> {
     #[inline(always)]
     fn drop(&mut self) {
-        self.deleter.delete::<T>(self.inner.as_ptr() as *mut u8)
+        unsafe {
+            D::delete::<T>(self.inner.as_ptr() as *mut ())
+        }
     }
 }
 
-impl<T, D: Deleter> fmt::Pointer for Unique<T, D> {
+impl<'a, T, D: Deleter> fmt::Pointer for Unique<'a, T, D> {
     #[inline(always)]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.inner, fmt)
     }
 }
 
-impl<T, D: Deleter> fmt::Debug for Unique<T, D> {
+impl<'a, T, D: Deleter> fmt::Debug for Unique<'a, T, D> {
     #[inline(always)]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, fmt)
     }
 }
 
-impl<T: Unpin, D: Deleter + Unpin> Unpin for Unique<T, D> {}
+impl<'a, T: Unpin, D: Deleter> Unpin for Unique<'a, T, D> {}
 
-unsafe impl<T: Send, D: Deleter + Send> Send for Unique<T, D> {}
+unsafe impl<'a, T: Send, D: Deleter> Send for Unique<'a, T, D> {}
 
-unsafe impl<T: Sync, D: Deleter + Sync> Sync for Unique<T, D> {}
+unsafe impl<'a, T: Sync, D: Deleter> Sync for Unique<'a, T, D> {}
 
-impl<T, D: Deleter> core::ops::Deref for Unique<T, D> {
+impl<'a, T, D: Deleter> core::ops::Deref for Unique<'a, T, D> {
     type Target = T;
 
     #[inline]
@@ -205,7 +165,7 @@ impl<T, D: Deleter> core::ops::Deref for Unique<T, D> {
     }
 }
 
-impl<T, D: Deleter> core::ops::DerefMut for Unique<T, D> {
+impl<'a, T, D: Deleter> core::ops::DerefMut for Unique<'a, T, D> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
@@ -214,7 +174,7 @@ impl<T, D: Deleter> core::ops::DerefMut for Unique<T, D> {
     }
 }
 
-impl<T, D: Deleter> core::hash::Hash for Unique<T, D> {
+impl<'a, T, D: Deleter> core::hash::Hash for Unique<'a, T, D> {
     #[inline]
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
@@ -226,9 +186,17 @@ impl<T> From<alloc::boxed::Box<T>> for Global<T> {
     #[inline]
     fn from(ptr: alloc::boxed::Box<T>) -> Self {
         let ptr = alloc::boxed::Box::into_raw(ptr);
-        Self {
-            inner: unsafe { ptr::NonNull::new_unchecked(ptr) },
-            deleter: crate::DefaultDeleter,
+        unsafe {
+            Self::from_ptr_unchecked(ptr)
+        }
+    }
+}
+
+impl<'a, T> From<&'a mut T> for Unique<'a, T, ()> {
+    #[inline]
+    fn from(ptr: &'a mut T) -> Self {
+        unsafe {
+            Self::from_ptr_unchecked(ptr)
         }
     }
 }

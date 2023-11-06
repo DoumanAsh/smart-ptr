@@ -14,37 +14,12 @@ extern crate alloc;
 ///Describes how to de-allocate pointer.
 pub trait Deleter {
     ///This function is called on `Drop`
-    fn delete<T>(&mut self, ptr: *mut u8);
+    unsafe fn delete<T>(ptr: *mut ());
 }
 
 impl Deleter for () {
     #[inline(always)]
-    fn delete<T>(&mut self, _: *mut u8) {}
-}
-
-impl Deleter for unsafe extern "C" fn(*mut u8) {
-    #[inline(always)]
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        unsafe {
-            (*self)(ptr)
-        }
-    }
-}
-
-impl Deleter for unsafe fn(*mut u8) {
-    #[inline(always)]
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        unsafe {
-            (*self)(ptr)
-        }
-    }
-}
-
-impl<F: FnMut(*mut u8)> Deleter for F {
-    #[inline(always)]
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        (*self)(ptr)
-    }
+    unsafe fn delete<T>(_: *mut ()) {}
 }
 
 #[cfg(feature = "alloc")]
@@ -60,17 +35,17 @@ impl<F: FnMut(*mut u8)> Deleter for F {
 ///
 ///let var = Box::new("test".to_string());
 ///unsafe {
-///    smart_ptr::boxed_deleter::<String>(Box::leak(var) as *mut String as *mut u8);
+///    smart_ptr::boxed_deleter::<String>(Box::leak(var) as *mut String as *mut ());
 ///}
 ///```
 ///
 ///## Warning
 ///
 ///Remember that things can get complicated when you cast from fat ptrs(with vtable)
-pub unsafe fn boxed_deleter<T>(ptr: *mut u8) {
+pub unsafe fn boxed_deleter<T>(ptr: *mut ()) {
     debug_assert!(!ptr.is_null());
 
-    alloc::boxed::Box::from_raw(ptr as *mut T);
+    let _  = alloc::boxed::Box::from_raw(ptr as *mut T);
 }
 
 #[derive(Default)]
@@ -85,10 +60,8 @@ pub struct DefaultDeleter;
 #[cfg(feature = "alloc")]
 impl Deleter for DefaultDeleter {
     #[inline]
-    fn delete<T>(&mut self, ptr: *mut u8) {
-        unsafe {
-            boxed_deleter::<T>(ptr)
-        }
+    unsafe fn delete<T>(ptr: *mut ()) {
+        boxed_deleter::<T>(ptr)
     }
 }
 
