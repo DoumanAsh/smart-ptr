@@ -228,6 +228,9 @@ impl<'a, T: ?Sized + Eq, D: Deleter> Eq for Unique<'a, T, D> {
 impl<'a, T: ?Sized + core::panic::RefUnwindSafe, D: Deleter> core::panic::UnwindSafe for Unique<'a, T, D> {
 }
 
+impl<'a, T: ?Sized + core::panic::RefUnwindSafe, D: Deleter> core::panic::RefUnwindSafe for Unique<'a, T, D> {
+}
+
 #[cfg(feature = "alloc")]
 impl<T: ?Sized> From<alloc::boxed::Box<T>> for Global<T> {
     #[inline]
