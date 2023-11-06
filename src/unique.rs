@@ -43,7 +43,15 @@ impl<T: ?Sized> Global<T> {
 ///
 ///Which means you must guarantee that specified pointer is valid one and points to existing memory storage,
 ///which is already initialized.
-pub struct Unique<'a, T, D> where T: ?Sized, D: Deleter {
+///
+///# Trait implementation
+///
+///Due to assumption that `Unique` pointer always has valid value
+///(you need to use unsafe code to create invalid one)
+///
+///All trait implementations, except pointer specific one (e.g. `fmt::Pointer`), implements
+///corresponding traits by delegating call to underlying value.
+pub struct Unique<'a, T: ?Sized, D: Deleter> {
     inner: ptr::NonNull<T>,
     _traits: marker::PhantomData<&'a D>,
 }
@@ -147,10 +155,17 @@ impl<'a, T: ?Sized, D: Deleter> fmt::Pointer for Unique<'a, T, D> {
     }
 }
 
-impl<'a, T: ?Sized, D: Deleter> fmt::Debug for Unique<'a, T, D> {
+impl<'a, T: ?Sized + fmt::Debug, D: Deleter> fmt::Debug for Unique<'a, T, D> {
     #[inline(always)]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, fmt)
+        fmt::Debug::fmt(&self.as_ref(), fmt)
+    }
+}
+
+impl<'a, T: ?Sized + fmt::Display, D: Deleter> fmt::Display for Unique<'a, T, D> {
+    #[inline(always)]
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.as_ref(), fmt)
     }
 }
 
@@ -180,11 +195,37 @@ impl<'a, T: ?Sized, D: Deleter> core::ops::DerefMut for Unique<'a, T, D> {
     }
 }
 
-impl<'a, T, D: Deleter> core::hash::Hash for Unique<'a, T, D> {
+impl<'a, T: ?Sized + core::hash::Hash, D: Deleter> core::hash::Hash for Unique<'a, T, D> {
     #[inline]
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.inner.hash(state);
+        self.as_ref().hash(state);
     }
+}
+
+impl<'a, T: ?Sized + PartialOrd, D: Deleter> PartialOrd<Self> for Unique<'a, T, D> {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        PartialOrd::partial_cmp(self.as_ref(), other.as_ref())
+    }
+}
+
+impl<'a, T: ?Sized + PartialEq, D: Deleter> PartialEq<Self> for Unique<'a, T, D> {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(self.as_ref(), other.as_ref())
+    }
+
+    #[allow(clippy::partialeq_ne_impl)]
+    #[inline(always)]
+    fn ne(&self, other: &Self) -> bool {
+        PartialEq::ne(self.as_ref(), other.as_ref())
+    }
+}
+
+impl<'a, T: ?Sized + Eq, D: Deleter> Eq for Unique<'a, T, D> {
+}
+
+impl<'a, T: ?Sized + core::panic::RefUnwindSafe, D: Deleter> core::panic::UnwindSafe for Unique<'a, T, D> {
 }
 
 #[cfg(feature = "alloc")]
