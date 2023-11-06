@@ -1,3 +1,6 @@
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use smart_ptr::{unique, Unique};
 
 use core::ptr;
@@ -29,7 +32,7 @@ fn should_dealloc() {
     pub struct MyDeleter<'a>(&'a mut bool);
 
     impl<'a> smart_ptr::Deleter for MyDeleter<'a> {
-        unsafe fn delete<T>(_: *mut ()) {
+        unsafe fn delete<T: ?Sized>(_: *mut T) {
             IS_DEALLOC.store(true, Ordering::SeqCst);
         }
     }
@@ -64,4 +67,22 @@ fn should_handle_mut_ref() {
     *ptr = true;
     drop(ptr);
     assert!(test);
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn should_handle_global_alloc_string() {
+    let text = Box::new(alloc::format!("test"));
+    let ptr: unique::Global<_> = text.into();
+    assert_eq!(ptr.as_ref(), "test");
+    drop(ptr);
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn should_handle_global_alloc_boxed_str() {
+    let text = alloc::format!("test").into_boxed_str();
+    let ptr: unique::Global<_> = text.into();
+    assert_eq!(ptr.as_ref(), "test");
+    drop(ptr);
 }

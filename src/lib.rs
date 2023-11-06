@@ -14,12 +14,12 @@ extern crate alloc;
 ///Describes how to de-allocate pointer.
 pub trait Deleter {
     ///This function is called on `Drop`
-    unsafe fn delete<T>(ptr: *mut ());
+    unsafe fn delete<T: ?Sized>(ptr: *mut T);
 }
 
 impl Deleter for () {
     #[inline(always)]
-    unsafe fn delete<T>(_: *mut ()) {}
+    unsafe fn delete<T: ?Sized>(_: *mut T) {}
 }
 
 #[cfg(feature = "alloc")]
@@ -35,17 +35,17 @@ impl Deleter for () {
 ///
 ///let var = Box::new("test".to_string());
 ///unsafe {
-///    smart_ptr::boxed_deleter::<String>(Box::leak(var) as *mut String as *mut ());
+///    smart_ptr::boxed_deleter::<String>(Box::leak(var) as *mut String);
 ///}
 ///```
 ///
 ///## Warning
 ///
 ///Remember that things can get complicated when you cast from fat ptrs(with vtable)
-pub unsafe fn boxed_deleter<T>(ptr: *mut ()) {
+pub unsafe fn boxed_deleter<T: ?Sized>(ptr: *mut T) {
     debug_assert!(!ptr.is_null());
 
-    let _  = alloc::boxed::Box::from_raw(ptr as *mut T);
+    let _  = alloc::boxed::Box::from_raw(ptr);
 }
 
 #[derive(Default)]
@@ -55,12 +55,12 @@ pub unsafe fn boxed_deleter<T>(ptr: *mut ()) {
 ///destruct it
 ///
 ///Therefore user must guarantee that pointer was created with the same type information
-pub struct DefaultDeleter;
+pub struct GlobalDeleter;
 
 #[cfg(feature = "alloc")]
-impl Deleter for DefaultDeleter {
+impl Deleter for GlobalDeleter {
     #[inline]
-    unsafe fn delete<T>(ptr: *mut ()) {
+    unsafe fn delete<T: ?Sized>(ptr: *mut T) {
         boxed_deleter::<T>(ptr)
     }
 }

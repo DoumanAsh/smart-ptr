@@ -5,8 +5,8 @@ use core::{mem, fmt, ptr, marker};
 use crate::Deleter;
 
 #[cfg(feature = "alloc")]
-///Alias to `Unique` with `DefaultDeleter` as second type parameter
-pub type Global<T> = Unique<'static, T, crate::DefaultDeleter>;
+///Alias to `Unique` with `GlobalDeleter` as second type parameter
+pub type Global<T> = Unique<'static, T, crate::GlobalDeleter>;
 
 #[cfg(feature = "alloc")]
 impl<T> Global<T> {
@@ -15,7 +15,10 @@ impl<T> Global<T> {
     pub fn boxed(val: T) -> Self {
         alloc::boxed::Box::new(val).into()
     }
+}
 
+#[cfg(feature = "alloc")]
+impl<T: ?Sized> Global<T> {
     #[inline]
     ///Converts ptr to box
     pub fn into_boxed(self) -> alloc::boxed::Box<T> {
@@ -40,12 +43,12 @@ impl<T> Global<T> {
 ///
 ///Which means you must guarantee that specified pointer is valid one and points to existing memory storage,
 ///which is already initialized.
-pub struct Unique<'a, T, D> where D: Deleter {
+pub struct Unique<'a, T, D> where T: ?Sized, D: Deleter {
     inner: ptr::NonNull<T>,
     _traits: marker::PhantomData<&'a D>,
 }
 
-impl<'a, T, D: Deleter> Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> Unique<'a, T, D> {
     #[inline]
     ///Creates new instance from raw pointer and `Deleter` instance
     ///
@@ -82,6 +85,9 @@ impl<'a, T, D: Deleter> Unique<'a, T, D> {
 
     #[inline(always)]
     ///Gets underlying raw pointer.
+    ///
+    ///Note that it is illegal to create multiple mutable references
+    ///so care must be taken when converting raw pointer into mutable reference.
     pub fn get(&self) -> *mut T {
         self.inner.as_ptr()
     }
@@ -125,36 +131,36 @@ impl<'a, T, D: Deleter> Unique<'a, T, D> {
     }
 }
 
-impl<'a, T, D: Deleter> Drop for Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> Drop for Unique<'a, T, D> {
     #[inline(always)]
     fn drop(&mut self) {
         unsafe {
-            D::delete::<T>(self.inner.as_ptr() as *mut ())
+            D::delete::<T>(self.inner.as_ptr())
         }
     }
 }
 
-impl<'a, T, D: Deleter> fmt::Pointer for Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> fmt::Pointer for Unique<'a, T, D> {
     #[inline(always)]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Pointer::fmt(&self.inner, fmt)
     }
 }
 
-impl<'a, T, D: Deleter> fmt::Debug for Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> fmt::Debug for Unique<'a, T, D> {
     #[inline(always)]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, fmt)
     }
 }
 
-impl<'a, T: Unpin, D: Deleter> Unpin for Unique<'a, T, D> {}
+impl<'a, T: ?Sized + Unpin, D: Deleter> Unpin for Unique<'a, T, D> {}
 
-unsafe impl<'a, T: Send, D: Deleter> Send for Unique<'a, T, D> {}
+unsafe impl<'a, T: ?Sized + Send, D: Deleter> Send for Unique<'a, T, D> {}
 
-unsafe impl<'a, T: Sync, D: Deleter> Sync for Unique<'a, T, D> {}
+unsafe impl<'a, T: ?Sized + Sync, D: Deleter> Sync for Unique<'a, T, D> {}
 
-impl<'a, T, D: Deleter> core::ops::Deref for Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> core::ops::Deref for Unique<'a, T, D> {
     type Target = T;
 
     #[inline]
@@ -165,7 +171,7 @@ impl<'a, T, D: Deleter> core::ops::Deref for Unique<'a, T, D> {
     }
 }
 
-impl<'a, T, D: Deleter> core::ops::DerefMut for Unique<'a, T, D> {
+impl<'a, T: ?Sized, D: Deleter> core::ops::DerefMut for Unique<'a, T, D> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
@@ -182,7 +188,7 @@ impl<'a, T, D: Deleter> core::hash::Hash for Unique<'a, T, D> {
 }
 
 #[cfg(feature = "alloc")]
-impl<T> From<alloc::boxed::Box<T>> for Global<T> {
+impl<T: ?Sized> From<alloc::boxed::Box<T>> for Global<T> {
     #[inline]
     fn from(ptr: alloc::boxed::Box<T>) -> Self {
         let ptr = alloc::boxed::Box::into_raw(ptr);
@@ -192,7 +198,7 @@ impl<T> From<alloc::boxed::Box<T>> for Global<T> {
     }
 }
 
-impl<'a, T> From<&'a mut T> for Unique<'a, T, ()> {
+impl<'a, T: ?Sized> From<&'a mut T> for Unique<'a, T, ()> {
     #[inline]
     fn from(ptr: &'a mut T) -> Self {
         unsafe {
