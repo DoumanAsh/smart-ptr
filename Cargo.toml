@@ -14,8 +14,6 @@ include = [
     "README.md"
 ]
 
-[dependencies]
-
 [features]
 alloc = []
 
