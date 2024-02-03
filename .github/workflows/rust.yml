@@ -20,40 +20,11 @@ on:
       - 'Cargo.toml'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install Rust Unix
-      run: |
-        if rustup --version >/dev/null 2>&1; then
-            rustup update
-        else
-             curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
-             echo ::add-path::$HOME/.cargo/bin
-        fi
-
-    - name: Install Miri
-      run: |
-        rustup toolchain install nightly
-        rustup +nightly component add miri
-
-    - name: Install Valgrind
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y valgrind
-
-    - name: Check no features
-      run: cargo check
-
-    - name: Run tests with alloc feature
-      run: cargo test --features alloc --verbose
-
-    - name: Valgrind Test
-      env:
-        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
-      run: cargo test --release --features alloc
-
-    - name: Miri Test
-      run: cargo +nightly miri test --features alloc
+  check:
+    if: github.event.pull_request.draft == false
+    uses: DoumanAsh/douman-ci/.github/workflows/rust.yml@master
+    with:
+      cargo-features: "alloc"
+      cargo-no-features: true
+      valgrind: false
+      miri: true
