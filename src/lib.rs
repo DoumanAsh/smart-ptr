@@ -6,7 +6,7 @@
 
 #![no_std]
 #![warn(missing_docs)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
+#![allow(clippy::style)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

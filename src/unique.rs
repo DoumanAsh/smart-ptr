@@ -243,7 +243,7 @@ impl<T: ?Sized> From<alloc::boxed::Box<T>> for Global<T> {
 }
 
 #[cfg(feature = "alloc")]
-impl<T: ?Sized + Clone> Clone for Global<T> {
+impl<T: Clone> Clone for Global<T> {
     fn clone(&self) -> Self {
         let val = unsafe {
             //Make sure not to drop unnecessary

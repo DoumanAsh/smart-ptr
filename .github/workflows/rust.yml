@@ -28,3 +28,4 @@ jobs:
       cargo-no-features: true
       valgrind: false
       miri: true
+      min-rustc-version: "1.56.0"
